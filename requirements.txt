@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+pydantic
+sqlalchemy
+faiss-cpu
+openai
+dashscope
+celery
+redis
+requests
+beautifulsoup4
+sse-starlette
+python-dotenv
+
+motor
+resend
+markdown

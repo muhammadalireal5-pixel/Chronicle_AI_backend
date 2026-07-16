@@ -1,0 +1,5 @@
+.env
+gcp_credentials.json
+__pycache__/
+*.pyc
+test_resend.py
