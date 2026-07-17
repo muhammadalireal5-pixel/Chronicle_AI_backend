@@ -23,6 +23,3 @@ with gr.Blocks() as demo:
 # 4. Mount the Gradio interface onto the FastAPI app
 app = gr.mount_gradio_app(fastapi_app, demo, path="/")
 
-# 5. Run the Uvicorn server if this script is executed directly
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7860)
