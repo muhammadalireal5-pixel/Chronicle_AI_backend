@@ -21,7 +21,7 @@ COPY --chown=appuser requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers (as the non-root user)
-RUN playwright install chromium --with-deps
+RUN python -m playwright install chromium
 
 # Copy application code
 COPY --chown=appuser . .
