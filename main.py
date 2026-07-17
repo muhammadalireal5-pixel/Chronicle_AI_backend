@@ -36,6 +36,10 @@ def on_startup():
     # MongoDB initializes globally in mongo_db.py
     pass
 
+@app.get("/")
+def read_root():
+    return {"status": "success", "message": "Chronicle AI Backend is running live on Render! 🚀 API endpoints are at /api/"}
+
 @app.post("/api/research/explore")
 async def explore_research_topics(payload: Dict[str, Any]):
     """
