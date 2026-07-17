@@ -1,25 +1,46 @@
 import os
 import subprocess
 import sys
-import uvicorn
-import gradio as gr
 
-# 1. Install Playwright browser on startup to the local non-root cache
+# ──────────────────────────────────────────────
+# Phase 1: Install Playwright Chromium at boot
+# ──────────────────────────────────────────────
 print("Installing Playwright Chromium...")
 try:
-    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+    subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "chromium"],
+        check=True
+    )
     print("Playwright Chromium installed successfully!")
 except Exception as e:
-    print(f"Error installing Playwright Chromium: {e}")
+    print(f"Warning: Could not install Playwright Chromium: {e}")
 
-# 2. Import our existing FastAPI backend
+# ──────────────────────────────────────────────
+# Phase 2: Import FastAPI backend + Gradio
+# ──────────────────────────────────────────────
+import gradio as gr
 from main import app as fastapi_app
 
-# 3. Create a dummy Gradio interface to satisfy the Hugging Face Gradio SDK
-with gr.Blocks() as demo:
-    gr.Markdown("# 🧠 Chronicle AI Backend")
-    gr.Markdown("The FastAPI engine is running successfully. API is available at `/api/`.")
+# ──────────────────────────────────────────────
+# Phase 3: Build a minimal Gradio UI
+# ──────────────────────────────────────────────
+with gr.Blocks(title="Chronicle AI Backend") as demo:
+    gr.Markdown(
+        """
+        # 🧠 Chronicle AI Backend
+        **Status:** Running ✅  
+        API endpoints are live at `/api/`
+        """
+    )
 
-# 4. Mount the Gradio interface onto the FastAPI app
+# ──────────────────────────────────────────────
+# Phase 4: Mount Gradio onto FastAPI + Launch
+# ──────────────────────────────────────────────
+# Mount the Gradio UI onto our existing FastAPI app at "/"
 app = gr.mount_gradio_app(fastapi_app, demo, path="/")
 
+# HF Spaces runs `python app.py` — we need to keep the process alive
+# by starting uvicorn ourselves on port 7860.
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
