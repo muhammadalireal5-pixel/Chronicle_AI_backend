@@ -1,6 +1,6 @@
-import os
 import subprocess
 import sys
+import os
 
 # ──────────────────────────────────────────────
 # Phase 1: Install Playwright Chromium at boot
@@ -9,11 +9,11 @@ print("Installing Playwright Chromium...")
 try:
     subprocess.run(
         [sys.executable, "-m", "playwright", "install", "chromium"],
-        check=True
+        check=True,
     )
     print("Playwright Chromium installed successfully!")
 except Exception as e:
-    print(f"Warning: Could not install Playwright Chromium: {e}")
+    print(f"Warning – could not install Playwright Chromium: {e}")
 
 # ──────────────────────────────────────────────
 # Phase 2: Import FastAPI backend + Gradio
@@ -22,25 +22,24 @@ import gradio as gr
 from main import app as fastapi_app
 
 # ──────────────────────────────────────────────
-# Phase 3: Build a minimal Gradio UI
+# Phase 3: Build a minimal Gradio status page
+# (Named _blocks so HF does NOT auto-launch it)
 # ──────────────────────────────────────────────
-with gr.Blocks(title="Chronicle AI Backend") as demo:
+_blocks = gr.Blocks(title="Chronicle AI Backend")
+with _blocks:
     gr.Markdown(
         """
         # 🧠 Chronicle AI Backend
-        **Status:** Running ✅  
+        **Status:** Running ✅
         API endpoints are live at `/api/`
         """
     )
 
 # ──────────────────────────────────────────────
-# Phase 4: Mount Gradio onto FastAPI + Launch
+# Phase 4: Mount Gradio UI onto FastAPI + Launch
 # ──────────────────────────────────────────────
-# Mount the Gradio UI onto our existing FastAPI app at "/"
-app = gr.mount_gradio_app(fastapi_app, demo, path="/")
+app = gr.mount_gradio_app(fastapi_app, _blocks, path="/")
 
-# HF Spaces runs `python app.py` — we need to keep the process alive
-# by starting uvicorn ourselves on port 7860.
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
