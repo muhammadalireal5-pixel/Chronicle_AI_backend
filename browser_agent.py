@@ -97,7 +97,10 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
     
     async with async_playwright() as p:
         # Launch browser with headless option
-        browser = await p.chromium.launch(headless=headless)
+        browser = await p.chromium.launch(
+            headless=headless,
+            args=['--no-sandbox', '--disable-dev-shm-usage']
+        )
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36"
         )
@@ -205,7 +208,10 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
 async def explore_topics(query: str, headless: bool = False) -> list[dict]:
     """Exploratory phase to generate sub-topics using Playwright and Qwen."""
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=headless)
+        browser = await p.chromium.launch(
+            headless=headless,
+            args=['--no-sandbox', '--disable-dev-shm-usage']
+        )
         context = await browser.new_context(
             user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
         )
