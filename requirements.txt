@@ -17,4 +17,3 @@ resend
 markdown
 gradio
 playwright
-huggingface-hub<1.0.0
