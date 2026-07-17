@@ -9,13 +9,7 @@ from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sse_starlette.sse import EventSourceResponse
 
-# --- INSTALL PLAYWRIGHT AT BOOT ---
-print("Installing Playwright Chromium...")
-try:
-    subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
-    print("Playwright Chromium installed successfully!")
-except Exception as e:
-    print(f"Warning: Could not install Playwright Chromium: {e}")
+# Playwright Chromium is pre-installed via the Dockerfile
 from mongo_db import db
 from hibernation_engine import research_loop, interrupt_flag, resume_events, message_queue, handle_chat_message
 from browser_agent import explore_topics
@@ -226,20 +220,4 @@ async def send_chat_message(payload: Dict[str, Any]):
     reply = await handle_chat_message(research_id, message)
     return {"reply": reply}
 
-# --- GRADio WRAPPER FOR HUGGING FACE SPACES ---
-import gradio as gr
-
-_blocks = gr.Blocks(title="Chronicle AI Backend")
-with _blocks:
-    gr.Markdown(
-        """
-        # 🧠 Chronicle AI Backend
-        **Status:** Running ✅
-        API endpoints are live at `/api/`
-        """
-    )
-
-# Override our 'app' variable to be the Gradio-mounted version of our FastAPI app
-# HF Spaces will detect this 'app' and automatically run it with Uvicorn.
-app = gr.mount_gradio_app(app, _blocks, path="/")
 
