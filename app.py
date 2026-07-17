@@ -37,9 +37,6 @@ with _blocks:
 
 # ──────────────────────────────────────────────
 # Phase 4: Mount Gradio UI onto FastAPI + Launch
-# ──────────────────────────────────────────────
 app = gr.mount_gradio_app(fastapi_app, _blocks, path="/")
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 7860)))
+# HF Spaces automatically detects and runs the 'app' FastAPI variable.
