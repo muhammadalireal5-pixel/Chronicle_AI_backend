@@ -15,6 +15,7 @@ WORKDIR /home/appuser/app
 # Redirecting Playwright cache to a writable location for the non-root user
 ENV PLAYWRIGHT_BROWSERS_PATH=/home/appuser/ms-playwright
 ENV PIP_NO_CACHE_DIR=1
+ENV PATH="/home/appuser/.local/bin:$PATH"
 
 # Install Python dependencies
 COPY --chown=appuser requirements.txt .
@@ -26,8 +27,8 @@ RUN python -m playwright install chromium
 # Copy application code
 COPY --chown=appuser . .
 
-# Expose port (default for HF Spaces is 7860)
-EXPOSE 7860
+# Expose port (Render defaults to 10000)
+EXPOSE 10000
 
-# Command to run FastAPI
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "7860"]
+# Command to run FastAPI (using shell form so $PORT gets evaluated by Render)
+CMD python -m uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000}
