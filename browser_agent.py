@@ -2,10 +2,11 @@ import asyncio
 import json
 import re
 from typing import Callable, Awaitable
-from playwright.async_api import async_playwright, Page, BrowserContext
+from playwright.async_api import async_playwright, Page
 from openai import AsyncOpenAI
 import os
 from bs4 import BeautifulSoup
+from duckduckgo_search import DDGS
 
 # Use the same client setup as hibernation_engine
 api_key = os.getenv("DASHSCOPE_API_KEY", "dummy_key_for_testing")
@@ -89,131 +90,19 @@ async def extract_page_text(page: Page) -> str:
         return f"Error extracting text: {e}"
 
 
-async def search_with_playwright(page: Page, search_query: str) -> list[dict]:
+def ddg_search(query: str, max_results: int = 8) -> list[dict]:
     """
-    Robust search function that tries multiple search engines.
-    Returns a list of dicts with 'title' and 'url' keys.
+    Search using DuckDuckGo API (no browser needed, no bot detection).
+    Returns list of dicts with 'title', 'url', 'body' keys.
     """
-    results = []
-    
-    # Strategy 1: Google search (most reliable)
     try:
-        encoded_query = search_query.replace(' ', '+')
-        await page.goto(
-            f"https://www.google.com/search?q={encoded_query}",
-            wait_until="domcontentloaded",
-            timeout=20000
-        )
-        await asyncio.sleep(2)
-        
-        # Extract links from Google results using multiple selector strategies
-        search_results = await page.evaluate("""
-            () => {
-                const results = [];
-                // Strategy A: Standard Google result links
-                document.querySelectorAll('div.g a[href^="http"]').forEach(a => {
-                    const title = a.querySelector('h3');
-                    if (title && a.href && !a.href.includes('google.com')) {
-                        results.push({ title: title.innerText, url: a.href });
-                    }
-                });
-                // Strategy B: Fallback - any h3 with parent link
-                if (results.length === 0) {
-                    document.querySelectorAll('a h3').forEach(h3 => {
-                        const a = h3.closest('a');
-                        if (a && a.href && !a.href.includes('google.com')) {
-                            results.push({ title: h3.innerText, url: a.href });
-                        }
-                    });
-                }
-                // Strategy C: Last resort - grab all external links with reasonable text
-                if (results.length === 0) {
-                    document.querySelectorAll('a[href^="http"]').forEach(a => {
-                        if (a.innerText.length > 10 && !a.href.includes('google.com') && !a.href.includes('accounts.google')) {
-                            results.push({ title: a.innerText.substring(0, 100), url: a.href });
-                        }
-                    });
-                }
-                return results.slice(0, 8);
-            }
-        """)
-        if search_results:
-            results = search_results
-            print(f"[Search] Google returned {len(results)} results for: {search_query}")
+        with DDGS() as ddgs:
+            results = list(ddgs.text(query, max_results=max_results))
+            print(f"[DDG API] Found {len(results)} results for: {query}")
             return results
     except Exception as e:
-        print(f"[Search] Google search failed: {e}")
-    
-    # Strategy 2: Fallback to Bing
-    try:
-        encoded_query = search_query.replace(' ', '+')
-        await page.goto(
-            f"https://www.bing.com/search?q={encoded_query}",
-            wait_until="domcontentloaded",
-            timeout=20000
-        )
-        await asyncio.sleep(2)
-        
-        search_results = await page.evaluate("""
-            () => {
-                const results = [];
-                document.querySelectorAll('li.b_algo a').forEach(a => {
-                    if (a.href && a.innerText.length > 5) {
-                        results.push({ title: a.innerText.substring(0, 100), url: a.href });
-                    }
-                });
-                if (results.length === 0) {
-                    document.querySelectorAll('a[href^="http"]').forEach(a => {
-                        if (a.innerText.length > 10 && !a.href.includes('bing.com') && !a.href.includes('microsoft.com')) {
-                            results.push({ title: a.innerText.substring(0, 100), url: a.href });
-                        }
-                    });
-                }
-                return results.slice(0, 8);
-            }
-        """)
-        if search_results:
-            results = search_results
-            print(f"[Search] Bing returned {len(results)} results for: {search_query}")
-            return results
-    except Exception as e:
-        print(f"[Search] Bing search failed: {e}")
-    
-    # Strategy 3: Last resort - DuckDuckGo lite (minimal JS, less bot detection)
-    try:
-        encoded_query = search_query.replace(' ', '+')
-        await page.goto(
-            f"https://lite.duckduckgo.com/lite/?q={encoded_query}",
-            wait_until="domcontentloaded",
-            timeout=20000
-        )
-        await asyncio.sleep(2)
-        
-        search_results = await page.evaluate("""
-            () => {
-                const results = [];
-                document.querySelectorAll('a.result-link').forEach(a => {
-                    if (a.href) {
-                        results.push({ title: a.innerText.substring(0, 100), url: a.href });
-                    }
-                });
-                if (results.length === 0) {
-                    document.querySelectorAll('a[href^="http"]').forEach(a => {
-                        if (a.innerText.length > 10 && !a.href.includes('duckduckgo.com')) {
-                            results.push({ title: a.innerText.substring(0, 100), url: a.href });
-                        }
-                    });
-                }
-                return results.slice(0, 8);
-            }
-        """)
-        if search_results:
-            results = search_results
-            print(f"[Search] DuckDuckGo Lite returned {len(results)} results for: {search_query}")
-    except Exception as e:
-        print(f"[Search] DuckDuckGo Lite search failed: {e}")
-    
-    return results
+        print(f"[DDG API] Search error: {e}")
+        return []
 
 
 async def run_browser_agent(query: str, research_id: str, send_log: Callable[[str, str, str], Awaitable[None]], extract_fact_func, process_claims_func, headless: bool = True) -> list:
@@ -224,7 +113,7 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
     await send_log(research_id, "🚀 Initializing Live Browser Agent...", "LOG")
     
     async with async_playwright() as p:
-        # Launch browser in headless mode
+        # Launch browser in headless mode (only used for reading pages, NOT for searching)
         browser = await p.chromium.launch(
             headless=True,
             args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
@@ -270,7 +159,6 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
             messages.append(msg)
             
             if getattr(msg, "tool_calls", None) is None:
-                # If it didn't call a tool, maybe it just spoke. Force it to keep going or finish.
                 if msg.content and "finish_research" in msg.content:
                     break
                 messages.append({"role": "user", "content": "Please use a tool to continue researching or finish."})
@@ -285,18 +173,24 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
                 
                 if fn_name == "search_google":
                     search_query = args.get("query", query)
-                    search_results = await search_with_playwright(page, search_query)
+                    # Use DDG API instead of browser scraping
+                    search_results = await asyncio.to_thread(ddg_search, search_query)
                     
                     results_text = []
                     for r in search_results[:5]:
-                        results_text.append(f"Title: {r['title']}\nURL: {r['url']}")
+                        title = r.get("title", "No title")
+                        url = r.get("href", r.get("url", ""))
+                        body = r.get("body", "")[:200]
+                        results_text.append(f"Title: {title}\nURL: {url}\nSnippet: {body}")
                     
-                    tool_res = "\n".join(results_text) if results_text else "No results found. Try a different search query."
+                    tool_res = "\n\n".join(results_text) if results_text else "No results found. Try a different search query."
+                    await send_log(research_id, f"🔍 Found {len(search_results)} search results", "LOG")
                     messages.append({"role": "tool", "tool_call_id": tool_call.id, "name": fn_name, "content": tool_res})
 
                 elif fn_name == "navigate_and_read":
                     url = args.get("url", "")
                     try:
+                        await send_log(research_id, f"📖 Reading: {url[:80]}...", "LOG")
                         await page.goto(url, wait_until="domcontentloaded", timeout=20000)
                         await asyncio.sleep(2)
                         page_text = await extract_page_text(page)
@@ -306,7 +200,6 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
 
                 elif fn_name == "extract_evidence":
                     await send_log(research_id, f"📝 Extracting facts from {args.get('url')}...", "LOG")
-                    # Delegate to the robust hibernation_engine extraction logic
                     new_units = await extract_fact_func(
                         text_chunk=args.get("relevant_text", ""),
                         source_title=args.get("title", ""),
@@ -331,64 +224,45 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
     return extracted_units
 
 async def explore_topics(query: str, headless: bool = True) -> list[dict]:
-    """Exploratory phase to generate sub-topics using Playwright and Qwen."""
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=True,
-            args=['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-        )
-        context = await browser.new_context(
-            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-            viewport={"width": 1280, "height": 720},
-            locale="en-US"
-        )
-        page = await context.new_page()
+    """Exploratory phase to generate sub-topics using DDG API + Qwen."""
+    try:
+        # Use DDG API for search — no browser needed for this step
+        search_results = await asyncio.to_thread(ddg_search, f"{query} research trends future", 10)
         
-        try:
-            # Use our robust multi-engine search
-            search_results = await search_with_playwright(page, f"{query} research trends future")
-            
-            # Now visit top results and extract snippets
-            snippets = []
-            for result in search_results[:5]:
-                try:
-                    await page.goto(result["url"], wait_until="domcontentloaded", timeout=15000)
-                    await asyncio.sleep(1)
-                    text = await extract_page_text(page)
-                    snippets.append(f"Title: {result['title']}\nURL: {result['url']}\nContent: {text[:500]}")
-                except Exception:
-                    snippets.append(f"Title: {result['title']}\nURL: {result['url']}\nContent: (Could not load)")
-            
-            search_text = "\n\n".join(snippets) if snippets else f"No search results found for '{query}'. Generate subtopics based on your knowledge."
-            
-            prompt = (
-                f"You are a Research Strategy AI. Based on the following recent search results for '{query}', "
-                f"identify 3 to 5 highly significant, trending, and authentic sub-topics that warrant deep research.\n"
-                f"Return ONLY valid JSON in this exact format:\n"
-                f"{{\n"
-                f"  \"topics\": [\n"
-                f"    {{\"title\": \"Sub-topic Name\", \"score\": 95, \"reasoning\": \"Why this is important and trending\"}}\n"
-                f"  ]\n"
-                f"}}\n\n"
-                f"Search Results:\n{search_text}"
-            )
-            
-            response = await client.chat.completions.create(
-                model="qwen-max",
-                messages=[{"role": "user", "content": prompt}],
-                response_format={"type": "json_object"}
-            )
-            
-            content = response.choices[0].message.content
-            data = json.loads(content)
-            return data.get("topics", [])
-            
-        except Exception as e:
-            print(f"Explore topics error: {e}")
-            # fallback
-            return [
-                {"title": f"{query} overview", "score": 80, "reasoning": "Fallback general topic due to search timeout"},
-                {"title": f"Recent advancements in {query}", "score": 90, "reasoning": "Fallback subtopic"}
-            ]
-        finally:
-            await browser.close()
+        snippets = []
+        for r in search_results[:10]:
+            title = r.get("title", "No title")
+            body = r.get("body", "")
+            url = r.get("href", r.get("url", ""))
+            snippets.append(f"Title: {title}\nURL: {url}\nSnippet: {body}")
+        
+        search_text = "\n\n".join(snippets) if snippets else f"No search results found for '{query}'. Generate subtopics based on your knowledge."
+        
+        prompt = (
+            f"You are a Research Strategy AI. Based on the following recent search results for '{query}', "
+            f"identify 3 to 5 highly significant, trending, and authentic sub-topics that warrant deep research.\n"
+            f"Return ONLY valid JSON in this exact format:\n"
+            f"{{\n"
+            f"  \"topics\": [\n"
+            f"    {{\"title\": \"Sub-topic Name\", \"score\": 95, \"reasoning\": \"Why this is important and trending\"}}\n"
+            f"  ]\n"
+            f"}}\n\n"
+            f"Search Results:\n{search_text}"
+        )
+        
+        response = await client.chat.completions.create(
+            model="qwen-max",
+            messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        
+        content = response.choices[0].message.content
+        data = json.loads(content)
+        return data.get("topics", [])
+        
+    except Exception as e:
+        print(f"Explore topics error: {e}")
+        return [
+            {"title": f"{query} overview", "score": 80, "reasoning": "Fallback general topic"},
+            {"title": f"Recent advancements in {query}", "score": 90, "reasoning": "Fallback subtopic"}
+        ]
