@@ -88,7 +88,7 @@ async def extract_page_text(page: Page) -> str:
     except Exception as e:
         return f"Error extracting text: {e}"
 
-async def run_browser_agent(query: str, research_id: str, send_log: Callable[[str, str, str], Awaitable[None]], extract_fact_func, process_claims_func, headless: bool = False) -> list:
+async def run_browser_agent(query: str, research_id: str, send_log: Callable[[str, str, str], Awaitable[None]], extract_fact_func, process_claims_func, headless: bool = True) -> list:
     """Runs an autonomous Qwen agent controlling a live Playwright browser."""
     
     extracted_units = []
@@ -205,7 +205,7 @@ async def run_browser_agent(query: str, research_id: str, send_log: Callable[[st
     await send_log(research_id, f"✅ Browser session complete. Extracted {len(extracted_units)} raw units.", "LOG")
     return extracted_units
 
-async def explore_topics(query: str, headless: bool = False) -> list[dict]:
+async def explore_topics(query: str, headless: bool = True) -> list[dict]:
     """Exploratory phase to generate sub-topics using Playwright and Qwen."""
     async with async_playwright() as p:
         browser = await p.chromium.launch(
