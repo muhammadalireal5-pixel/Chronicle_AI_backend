@@ -6,7 +6,7 @@ from playwright.async_api import async_playwright, Page
 from openai import AsyncOpenAI
 import os
 from bs4 import BeautifulSoup
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 # Use the same client setup as hibernation_engine
 api_key = os.getenv("DASHSCOPE_API_KEY", "dummy_key_for_testing")

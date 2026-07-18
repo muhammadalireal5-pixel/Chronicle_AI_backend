@@ -16,4 +16,4 @@ motor
 resend
 markdown
 playwright
-duckduckgo-search
+ddgs
