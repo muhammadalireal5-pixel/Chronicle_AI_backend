@@ -2,6 +2,9 @@
 
 **Autonomous AI Research Pipeline | 7-Pass Fact-Checked Synthesis | Live Web Extraction**
 
+🔗 **Live API:** [chronicle-ai-backend-a7go.onrender.com](https://chronicle-ai-backend-a7go.onrender.com/)  
+🌐 **Frontend:** [chronicle-ai-frontend-sandy.vercel.app](https://chronicle-ai-frontend-sandy.vercel.app/)
+
 The Chronicle AI engine is the core backend powering the Chronicle AI autonomous deep research platform. It orchestrates an end-to-end research pipeline — from live web browsing and evidence extraction to multi-pass adversarial synthesis — producing comprehensive, fact-checked research reports with full source provenance.
 
 ---
@@ -117,8 +120,8 @@ Research sessions can be **paused mid-extraction**. While paused, users can chat
 
 **How it works:** An interrupt flag is checked after every claim extraction. When set, the engine awaits an asyncio Event. The `/api/chat` endpoint handles conversations during paused state using Qwen-Plus with session context. On resume, chat messages become hard constraints in the final report generation.
 
-### 📧 Email Report Delivery
-Completed reports can be emailed directly from the platform. Markdown is converted to styled HTML and sent via the Resend email API.
+### 📧 Email Report Delivery *(Coming Soon)*
+Email delivery of research reports is currently under development and will be available in an upcoming release. Once live, completed reports will be emailed directly from the platform — Markdown converted to styled HTML and sent via the Resend email API.
 
 ---
 
@@ -180,7 +183,7 @@ Accuracy is not a feature — it is the architecture. Every layer of the system 
 | `POST` | `/api/research/interrupt` | Pause an active session |
 | `POST` | `/api/research/resume` | Resume a paused session |
 | `GET` | `/api/research/stream?id=` | SSE stream for real-time pipeline logs |
-| `POST` | `/api/research/share` | Email a report via Resend |
+| `POST` | `/api/research/share` | Email a report via Resend *(coming soon)* |
 | `GET` | `/api/chats/{user_id}` | Fetch user's research history |
 | `DELETE` | `/api/chats/{research_id}` | Delete a research session |
 | `GET` | `/api/chat/{research_id}` | Get chat history for a session |
